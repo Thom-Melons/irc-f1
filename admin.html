@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>IRC Admin Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,700;0,800;0,900;1,700;1,800;1,900&family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --black: #141414; --dark: #1c1c1c; --card: #232323;
+      --border: #2e2e2e; --blue: #00C0DF; --blue-dk: #0099b8;
+      --white: #f0ece4; --dim: #777; --green: #22c55e; --red: #ef4444;
+      --gold: #f59e0b;
+    }
+    body { background:var(--black); color:var(--white); font-family:'Barlow',sans-serif; font-weight:300; min-height:100vh; }
+
+    /* ── LOGIN ── */
+    #login-screen {
+      min-height:100vh; display:flex; align-items:center; justify-content:center;
+      background: radial-gradient(ellipse at center, rgba(0,192,223,.08) 0%, transparent 70%);
+    }
+    .login-box {
+      background:var(--dark); border:1px solid var(--border);
+      padding:3rem 2.5rem; width:360px; text-align:center;
+    }
+    .login-box img { height:48px; margin-bottom:1.5rem; }
+    .login-box h1 { font-family:'Exo 2',sans-serif; font-weight:900; font-style:italic; font-size:1.4rem; letter-spacing:.06em; color:var(--white); margin-bottom:.4rem; }
+    .login-box p { font-size:.85rem; color:var(--dim); margin-bottom:2rem; }
+    .login-box input {
+      width:100%; background:var(--black); border:1px solid var(--border);
+      color:var(--white); padding:.8rem 1rem; font-family:'Barlow',sans-serif;
+      font-size:1rem; margin-bottom:1rem; outline:none;
+      transition:border-color .2s;
+    }
+    .login-box input:focus { border-color:var(--blue); }
+    .btn { font-family:'Barlow Condensed',sans-serif; font-size:.85rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase; cursor:pointer; border:none; padding:.85rem 2rem; transition:.2s; display:inline-flex; align-items:center; gap:.5rem; }
+    .btn-blue { background:var(--blue); color:#000; width:100%; justify-content:center; }
+    .btn-blue:hover { background:var(--blue-dk); }
+    .btn-green { background:var(--green); color:#000; }
+    .btn-green:hover { background:#16a34a; }
+    .btn-red { background:var(--red); color:#fff; }
+    .btn-red:hover { background:#dc2626; }
+    .btn-ghost { background:transparent; color:var(--dim); border:1px solid var(--border); }
+    .btn-ghost:hover { border-color:var(--white); color:var(--white); }
+    .btn-sm { padding:.5rem 1rem; font-size:.75rem; }
+    #login-error { color:var(--red); font-size:.85rem; margin-top:.5rem; min-height:1.2em; }
+
+    /* ── ADMIN LAYOUT ── */
+    #admin-app { display:none; min-height:100vh; }
+
+    header {
+      position:sticky; top:0; z-index:50;
+      background:rgba(20,20,20,.96); backdrop-filter:blur(12px);
+      border-bottom:1px solid var(--border);
+      padding:0 2rem; height:60px;
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    header::before { content:''; position:absolute; top:0; left:0; width:100%; height:2px; background:linear-gradient(90deg,#009246 33.3%,#f0ece4 33.3% 66.6%,#ce2b37 66.6%); }
+    .header-logo { display:flex; align-items:center; gap:.7rem; }
+    .header-logo img { height:28px; }
+    .header-logo span { font-family:'Exo 2',sans-serif; font-weight:900; font-style:italic; font-size:.9rem; letter-spacing:.1em; color:var(--dim); }
+    .header-logo strong { color:var(--blue); }
+
+    /* ── SIDEBAR + CONTENT ── */
+    .layout { display:flex; min-height:calc(100vh - 60px); }
+    aside {
+      width:220px; background:var(--dark); border-right:1px solid var(--border);
+      padding:1.5rem 0; flex-shrink:0; position:sticky; top:60px; height:calc(100vh - 60px); overflow-y:auto;
+    }
+    .aside-label { font-family:'Barlow Condensed',sans-serif; font-size:.65rem; font-weight:700; letter-spacing:.35em; text-transform:uppercase; color:var(--dim); padding:.5rem 1.5rem; margin-bottom:.25rem; }
+    .nav-item {
+      display:flex; align-items:center; gap:.75rem;
+      padding:.75rem 1.5rem; cursor:pointer;
+      font-family:'Barlow Condensed',sans-serif; font-size:.88rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+      color:var(--dim); transition:background .15s, color .15s; border:none; background:none; width:100%; text-align:left;
+    }
+    .nav-item:hover { background:var(--card); color:var(--white); }
+    .nav-item.active { background:rgba(0,192,223,.08); color:var(--blue); border-right:2px solid var(--blue); }
+    .nav-item .icon { font-size:1rem; width:20px; text-align:center; }
+
+    main { flex:1; padding:2.5rem; overflow-y:auto; }
+    .page { display:none; }
+    .page.active { display:block; }
+
+    /* ── PAGE HEADER ── */
+    .page-title { font-family:'Exo 2',sans-serif; font-weight:900; font-style:italic; font-size:2rem; letter-spacing:.04em; color:var(--white); margin-bottom:.4rem; }
+    .page-sub { font-size:.88rem; color:var(--dim); margin-bottom:2rem; }
+    .page-actions { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; margin-bottom:2rem; }
+
+    /* ── CARDS ── */
+    .card { background:var(--card); border:1px solid var(--border); padding:1.5rem; margin-bottom:1rem; }
+    .card-title { font-family:'Barlow Condensed',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.35em; text-transform:uppercase; color:var(--blue); margin-bottom:1rem; display:flex; align-items:center; gap:.5rem; }
+    .card-title::before { content:''; display:block; width:16px; height:1px; background:var(--blue); }
+
+    /* ── TABLE ── */
+    .data-table { width:100%; border-collapse:collapse; }
+    .data-table th { font-family:'Barlow Condensed',sans-serif; font-size:.68rem; font-weight:700; letter-spacing:.3em; text-transform:uppercase; color:var(--dim); padding:.6rem 1rem; text-align:left; border-bottom:1px solid var(--border); }
+    .data-table td { padding:.8rem 1rem; font-family:'Barlow Condensed',sans-serif; font-size:.95rem; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:middle; }
+    .data-table tr:hover td { background:rgba(255,255,255,.02); }
+    .team-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+    .badge { font-family:'Barlow Condensed',sans-serif; font-size:.65rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase; padding:2px 8px; border-radius:3px; display:inline-block; }
+    .badge-f1 { background:rgba(0,192,223,.15); color:var(--blue); }
+    .badge-f2 { background:rgba(245,158,11,.15); color:var(--gold); }
+    .badge-f3 { background:rgba(34,197,94,.15); color:var(--green); }
+
+    /* ── FORM ── */
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+    .form-grid.col3 { grid-template-columns:1fr 1fr 1fr; }
+    .form-group { display:flex; flex-direction:column; gap:.4rem; }
+    .form-group.full { grid-column:1/-1; }
+    label { font-family:'Barlow Condensed',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.25em; text-transform:uppercase; color:var(--dim); }
+    input, select { background:var(--black); border:1px solid var(--border); color:var(--white); padding:.7rem .9rem; font-family:'Barlow',sans-serif; font-size:.9rem; outline:none; transition:border-color .2s; width:100%; }
+    input:focus, select:focus { border-color:var(--blue); }
+    select option { background:var(--dark); }
+    .form-actions { display:flex; gap:.75rem; margin-top:1.5rem; }
+
+    /* ── RISULTATI ── */
+    .position-list { display:flex; flex-direction:column; gap:.4rem; }
+    .position-row {
+      display:grid; grid-template-columns:50px 1fr auto;
+      align-items:center; gap:1rem;
+      background:var(--black); border:1px solid var(--border);
+      padding:.6rem 1rem;
+    }
+    .position-num { font-family:'Exo 2',sans-serif; font-weight:900; font-style:italic; font-size:1.3rem; color:var(--dim); text-align:center; }
+    .position-num.p1 { color:#FFD700; }
+    .position-num.p2 { color:#C0C0C0; }
+    .position-num.p3 { color:#CD7F32; }
+    .position-row select { border:none; background:transparent; padding:.3rem .5rem; font-size:.95rem; }
+    .fl-check { display:flex; align-items:center; gap:.4rem; font-family:'Barlow Condensed',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); white-space:nowrap; cursor:pointer; }
+    .fl-check input[type=checkbox] { width:16px; height:16px; accent-color:var(--blue); cursor:pointer; }
+
+    /* ── CALENDARIO ── */
+    .race-toggle-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:.9rem 1.2rem; border-bottom:1px solid rgba(255,255,255,.04);
+      gap:1rem;
+    }
+    .race-toggle-row:last-child { border-bottom:none; }
+    .race-info { flex:1; }
+    .race-info .rname { font-family:'Exo 2',sans-serif; font-weight:800; font-style:italic; font-size:1rem; color:var(--white); }
+    .race-info .rdetail { font-size:.8rem; color:var(--dim); margin-top:2px; }
+    .toggle-wrap { display:flex; align-items:center; gap:.75rem; }
+    .toggle { position:relative; width:44px; height:24px; cursor:pointer; }
+    .toggle input { opacity:0; width:0; height:0; position:absolute; }
+    .toggle-slider { position:absolute; inset:0; background:var(--border); border-radius:24px; transition:.3s; }
+    .toggle-slider::before { content:''; position:absolute; width:18px; height:18px; left:3px; bottom:3px; background:var(--dim); border-radius:50%; transition:.3s; }
+    .toggle input:checked + .toggle-slider { background:var(--blue); }
+    .toggle input:checked + .toggle-slider::before { transform:translateX(20px); background:#fff; }
+    .done-label { font-family:'Barlow Condensed',sans-serif; font-size:.72rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:var(--dim); }
+    .done-label.done { color:var(--green); }
+    .double-badge { font-family:'Barlow Condensed',sans-serif; font-size:.6rem; font-weight:700; letter-spacing:.2em; background:rgba(245,158,11,.2); color:var(--gold); padding:2px 6px; border-radius:2px; }
+
+    /* ── CAT TABS ── */
+    .cat-tabs { display:flex; gap:0; margin-bottom:1.5rem; border-bottom:1px solid var(--border); }
+    .cat-tab { font-family:'Barlow Condensed',sans-serif; font-size:.8rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:var(--dim); padding:.65rem 1.5rem; cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; margin-bottom:-1px; transition:.2s; }
+    .cat-tab:hover { color:var(--white); }
+    .cat-tab.active { color:var(--blue); border-bottom-color:var(--blue); }
+
+    /* ── SETUP PAGE ── */
+    .setup-step { display:flex; align-items:flex-start; gap:1.5rem; padding:1.5rem; border-bottom:1px solid var(--border); }
+    .setup-step:last-child { border-bottom:none; }
+    .step-num { font-family:'Exo 2',sans-serif; font-weight:900; font-style:italic; font-size:2rem; color:rgba(0,192,223,.3); min-width:40px; line-height:1; }
+    .step-body h3 { font-family:'Barlow Condensed',sans-serif; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--white); margin-bottom:.4rem; }
+    .step-body p { font-size:.88rem; color:var(--dim); line-height:1.6; margin-bottom:.8rem; }
+    .alert { padding:.8rem 1rem; font-family:'Barlow Condensed',sans-serif; font-size:.85rem; border-radius:0; margin-top:.8rem; display:none; }
+    .alert-ok { background:rgba(34,197,94,.1); color:var(--green); border:1px solid rgba(34,197,94,.3); }
+    .alert-err { background:rgba(239,68,68,.1); color:var(--red); border:1px solid rgba(239,68,68,.3); }
+
+    /* ── MODAL ── */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:200; align-items:center; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:var(--dark); border:1px solid var(--border); padding:2rem; width:480px; max-width:95vw; max-height:90vh; overflow-y:auto; }
+    .modal h2 { font-family:'Exo 2',sans-serif; font-weight:900; font-style:italic; font-size:1.4rem; color:var(--white); margin-bottom:1.5rem; }
+
+    .toast { position:fixed; bottom:2rem; right:2rem; z-index:300; background:var(--card); border:1px solid var(--border); padding:.9rem 1.4rem; font-family:'Barlow Condensed',sans-serif; font-size:.85rem; font-weight:600; letter-spacing:.1em; display:none; animation:fadeIn .3s ease; }
+    .toast.ok { border-color:var(--green); color:var(--green); }
+    .toast.err { border-color:var(--red); color:var(--red); }
+    @keyframes fadeIn { from {opacity:0; transform:translateY(8px);} to {opacity:1; transform:translateY(0);} }
+
+    .loading { color:var(--dim); font-family:'Barlow Condensed',sans-serif; font-size:.85rem; letter-spacing:.2em; text-transform:uppercase; padding:2rem; text-align:center; }
+
+    @media(max-width:768px) {
+      aside { display:none; }
+      .layout { flex-direction:column; }
+      main { padding:1.5rem; }
+      .form-grid, .form-grid.col3 { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <img src="logo-compact.png" alt="IRC" onerror="this.style.display='none'">
+    <h1>IRC Admin Panel</h1>
+    <p>Accesso riservato allo staff</p>
+    <input type="password" id="pwd-input" placeholder="Password" autocomplete="current-password">
+    <button class="btn btn-blue" onclick="doLogin()">Accedi</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- ADMIN APP -->
+<div id="admin-app">
+  <header>
+    <div class="header-logo">
+      <img src="logo-compact.png" alt="IRC" onerror="this.style.display='none'">
+      <span>IRC <strong>Admin</strong></span>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="logout()">Esci</button>
+  </header>
+
+  <div class="layout">
+    <aside>
+      <div class="aside-label">Gestione</div>
+      <button class="nav-item active" onclick="showPage('risultati')"><span class="icon">🏁</span> Risultati</button>
+      <button class="nav-item" onclick="showPage('piloti')"><span class="icon">👤</span> Piloti</button>
+      <button class="nav-item" onclick="showPage('calendario')"><span class="icon">📅</span> Calendario</button>
+      <div class="aside-label" style="margin-top:1.5rem">Sistema</div>
+      <button class="nav-item" onclick="showPage('setup')"><span class="icon">⚙️</span> Setup DB</button>
+    </aside>
+
+    <main>
+
+      <!-- ═══ RISULTATI ═══ -->
+      <div class="page active" id="page-risultati">
+        <div class="page-title">Risultati Gara</div>
+        <div class="page-sub">Seleziona la categoria e la gara, poi inserisci la classifica finale.</div>
+
+        <div class="cat-tabs">
+          <button class="cat-tab active" onclick="switchResultCat('F1', this)">F1</button>
+          <button class="cat-tab" onclick="switchResultCat('F2', this)">F2</button>
+          <button class="cat-tab" onclick="switchResultCat('F3', this)">F3</button>
+        </div>
+
+        <div class="card" style="margin-bottom:1.5rem">
+          <div class="card-title">Selezione Gara</div>
+          <div class="form-group">
+            <label>Gara</label>
+            <select id="race-select" onchange="loadResultForm()">
+              <option value="">— Seleziona una gara —</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="result-form-wrap" style="display:none">
+          <div class="card">
+            <div class="card-title">Classifica Finale</div>
+            <p style="font-size:.82rem;color:var(--dim);margin-bottom:1.2rem">Seleziona il pilota per ogni posizione. Spunta "Giro Veloce" per il pilota che ha fatto il giro più veloce.</p>
+            <div class="position-list" id="position-list"></div>
+            <div class="form-actions">
+              <button class="btn btn-green" onclick="saveResults()">💾 Salva Risultati</button>
+              <button class="btn btn-ghost" onclick="clearResultForm()">✕ Annulla</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PILOTI ═══ -->
+      <div class="page" id="page-piloti">
+        <div class="page-title">Piloti</div>
+        <div class="page-sub">Gestisci i piloti iscritti al campionato.</div>
+        <div class="page-actions">
+          <button class="btn btn-blue" onclick="openAddDriver()">+ Aggiungi Pilota</button>
+          <div class="cat-tabs" style="margin-bottom:0;border-bottom:none;">
+            <button class="cat-tab active" onclick="switchDriverCat('ALL', this)">Tutti</button>
+            <button class="cat-tab" onclick="switchDriverCat('F1', this)">F1</button>
+            <button class="cat-tab" onclick="switchDriverCat('F2', this)">F2</button>
+            <button class="cat-tab" onclick="switchDriverCat('F3', this)">F3</button>
+          </div>
+        </div>
+        <div class="card" style="padding:0">
+          <div id="drivers-table-wrap"><div class="loading">Caricamento...</div></div>
+        </div>
+      </div>
+
+      <!-- ═══ CALENDARIO ═══ -->
+      <div class="page" id="page-calendario">
+        <div class="page-title">Calendario</div>
+        <div class="page-sub">Segna le gare come completate o in programma.</div>
+        <div class="cat-tabs">
+          <button class="cat-tab active" onclick="switchCalCat('F1', this)">F1 — Venerdì</button>
+          <button class="cat-tab" onclick="switchCalCat('F2', this)">F2 — Giovedì</button>
+          <button class="cat-tab" onclick="switchCalCat('F3', this)">F3 — Martedì</button>
+        </div>
+        <div class="card" style="padding:0">
+          <div id="calendar-list"><div class="loading">Caricamento...</div></div>
+        </div>
+      </div>
+
+      <!-- ═══ SETUP ═══ -->
+      <div class="page" id="page-setup">
+        <div class="page-title">Setup Database</div>
+        <div class="page-sub">Inizializza le tabelle e carica i dati di partenza. Da fare una sola volta.</div>
+        <div class="card" style="padding:0">
+          <div class="setup-step">
+            <div class="step-num">01</div>
+            <div class="step-body">
+              <h3>Inizializza il Database</h3>
+              <p>Crea le tabelle (drivers, races, race_results) e carica automaticamente il calendario completo con tutti i 33 round (11 per categoria).</p>
+              <button class="btn btn-blue" onclick="initDB()">🚀 Inizializza Database</button>
+              <div class="alert alert-ok" id="init-ok"></div>
+              <div class="alert alert-err" id="init-err"></div>
+            </div>
+          </div>
+          <div class="setup-step">
+            <div class="step-num">02</div>
+            <div class="step-body">
+              <h3>Aggiungi i Piloti</h3>
+              <p>Dopo l'inizializzazione, vai nella sezione <strong style="color:var(--white)">Piloti</strong> e aggiungi tutti i partecipanti per categoria.</p>
+              <button class="btn btn-ghost" onclick="showPage('piloti')">→ Vai ai Piloti</button>
+            </div>
+          </div>
+          <div class="setup-step">
+            <div class="step-num">03</div>
+            <div class="step-body">
+              <h3>Password Admin</h3>
+              <p>Assicurati di aver impostato la variabile d'ambiente <code style="color:var(--blue);font-size:.85rem">ADMIN_PASSWORD</code> su Netlify (Site configuration → Environment variables).</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- MODAL PILOTA -->
+<div class="modal-overlay" id="driver-modal">
+  <div class="modal">
+    <h2 id="driver-modal-title">Aggiungi Pilota</h2>
+    <input type="hidden" id="driver-edit-id">
+    <div class="form-grid col3">
+      <div class="form-group full">
+        <label>Nome Completo *</label>
+        <input type="text" id="d-name" placeholder="Es. Mario Rossi">
+      </div>
+      <div class="form-group">
+        <label>Team *</label>
+        <select id="d-team">
+          <option value="Ferrari">Ferrari</option>
+          <option value="McLaren">McLaren</option>
+          <option value="Red Bull">Red Bull Racing</option>
+          <option value="Mercedes">Mercedes</option>
+          <option value="Aston Martin">Aston Martin</option>
+          <option value="Alpine">Alpine</option>
+          <option value="Williams">Williams</option>
+          <option value="Haas">Haas</option>
+          <option value="Kick Sauber">Kick Sauber</option>
+          <option value="Racing Bulls">Racing Bulls</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Categoria *</label>
+        <select id="d-category">
+          <option value="F1">F1</option>
+          <option value="F2">F2</option>
+          <option value="F3">F3</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Numero</label>
+        <input type="text" id="d-number" placeholder="Es. 44">
+      </div>
+      <div class="form-group">
+        <label>Bandiera</label>
+        <input type="text" id="d-flag" placeholder="🇮🇹">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-green" onclick="saveDriver()">💾 Salva</button>
+      <button class="btn btn-ghost" onclick="closeModal('driver-modal')">Annulla</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '/.netlify/functions';
+let password = '';
+let currentResultCat = 'F1';
+let currentDriverCat = 'ALL';
+let currentCalCat = 'F1';
+let allDrivers = [];
+let allRaces = [];
+
+// ── AUTH ──
+document.getElementById('pwd-input').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+async function doLogin() {
+  const pwd = document.getElementById('pwd-input').value;
+  const err = document.getElementById('login-error');
+  err.textContent = '';
+  try {
+    const r = await fetch(`${API}/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd })
+    });
+    const data = await r.json();
+    if (data.ok) {
+      password = pwd;
+      sessionStorage.setItem('irc_pwd', pwd);
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('admin-app').style.display = 'block';
+      initApp();
+    } else {
+      err.textContent = data.error || 'Password errata';
+    }
+  } catch (e) {
+    err.textContent = 'Errore di connessione';
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem('irc_pwd');
+  password = '';
+  document.getElementById('admin-app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('pwd-input').value = '';
+}
+
+// Auto-login if session exists
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = sessionStorage.getItem('irc_pwd');
+  if (saved) {
+    document.getElementById('pwd-input').value = saved;
+    doLogin();
+  }
+});
+
+// ── NAVIGATION ──
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.textContent.trim().toLowerCase().includes(id.toLowerCase().slice(0,4))) n.classList.add('active');
+  });
+  if (id === 'piloti') loadDrivers();
+  if (id === 'calendario') loadCalendar();
+}
+
+// ── INIT APP ──
+async function initApp() {
+  await Promise.all([fetchDrivers(), fetchRaces()]);
+  loadResultRaces();
+  loadDrivers();
+  loadCalendar();
+}
+
+async function fetchDrivers() {
+  try {
+    const r = await fetch(`${API}/drivers`);
+    allDrivers = await r.json();
+  } catch(e) { allDrivers = []; }
+}
+
+async function fetchRaces() {
+  try {
+    const r = await fetch(`${API}/races`);
+    allRaces = await r.json();
+  } catch(e) { allRaces = []; }
+}
+
+// ── RISULTATI ──
+function switchResultCat(cat, el) {
+  currentResultCat = cat;
+  document.querySelectorAll('#page-risultati .cat-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('result-form-wrap').style.display = 'none';
+  loadResultRaces();
+}
+
+function loadResultRaces() {
+  const sel = document.getElementById('race-select');
+  const races = allRaces.filter(r => r.category === currentResultCat);
+  sel.innerHTML = '<option value="">— Seleziona una gara —</option>';
+  races.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.id;
+    opt.textContent = `Round ${r.round} — ${r.name}${r.double_points ? ' (2×)' : ''}${r.is_done ? ' ✓' : ''}`;
+    sel.appendChild(opt);
+  });
+}
+
+async function loadResultForm() {
+  const raceId = document.getElementById('race-select').value;
+  if (!raceId) { document.getElementById('result-form-wrap').style.display = 'none'; return; }
+
+  document.getElementById('result-form-wrap').style.display = 'block';
+  const drivers = allDrivers.filter(d => d.category === currentResultCat);
+  const list = document.getElementById('position-list');
+
+  // Load existing results
+  let existing = {};
+  try {
+    const r = await fetch(`${API}/results?race_id=${raceId}`);
+    const data = await r.json();
+    data.forEach(row => { existing[row.position] = { driver_id: row.driver_id, fastest_lap: row.fastest_lap }; });
+  } catch(e) {}
+
+  list.innerHTML = '';
+  const maxPos = Math.max(drivers.length, 10);
+  for (let pos = 1; pos <= maxPos; pos++) {
+    const ex = existing[pos] || {};
+    const numClass = pos === 1 ? 'p1' : pos === 2 ? 'p2' : pos === 3 ? 'p3' : '';
+    const row = document.createElement('div');
+    row.className = 'position-row';
+    row.innerHTML = `
+      <div class="position-num ${numClass}">${pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : pos}</div>
+      <select class="driver-sel" data-pos="${pos}">
+        <option value="">— Nessuno / DNF —</option>
+        ${drivers.map(d => `<option value="${d.id}" ${ex.driver_id == d.id ? 'selected' : ''}>${d.flag || '🇮🇹'} ${d.name} (${d.team})</option>`).join('')}
+      </select>
+      <label class="fl-check">
+        <input type="checkbox" class="fl-box" data-pos="${pos}" ${ex.fastest_lap ? 'checked' : ''}> FL
+      </label>`;
+    list.appendChild(row);
+  }
+}
+
+async function saveResults() {
+  const raceId = document.getElementById('race-select').value;
+  if (!raceId) return;
+
+  const results = [];
+  let flCount = 0;
+  document.querySelectorAll('.fl-box:checked').forEach(() => flCount++);
+  if (flCount > 1) { toast('Solo un pilota può avere il giro veloce!', 'err'); return; }
+
+  document.querySelectorAll('.driver-sel').forEach(sel => {
+    if (!sel.value) return;
+    const pos = parseInt(sel.dataset.pos);
+    const fl = document.querySelector(`.fl-box[data-pos="${pos}"]`)?.checked || false;
+    results.push({ driver_id: parseInt(sel.value), position: pos, fastest_lap: fl });
+  });
+
+  if (results.length === 0) { toast('Inserisci almeno un risultato', 'err'); return; }
+
+  try {
+    const r = await fetch(`${API}/results`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': password },
+      body: JSON.stringify({ race_id: parseInt(raceId), results })
+    });
+    const data = await r.json();
+    if (data.ok) {
+      toast('Risultati salvati! ✓', 'ok');
+      await fetchRaces();
+      loadResultRaces();
+    } else {
+      toast(data.error || 'Errore nel salvataggio', 'err');
+    }
+  } catch(e) {
+    toast('Errore di connessione', 'err');
+  }
+}
+
+function clearResultForm() {
+  document.getElementById('race-select').value = '';
+  document.getElementById('result-form-wrap').style.display = 'none';
+}
+
+// ── PILOTI ──
+const TEAM_COLORS = {
+  'Ferrari':'#e8002d','McLaren':'#FF8000','Red Bull':'#3671C6','Mercedes':'#27F4D2',
+  'Aston Martin':'#229971','Alpine':'#FF87BC','Williams':'#64C4FF','Haas':'#B6BABD',
+  'Kick Sauber':'#52E252','Racing Bulls':'#6692FF'
+};
+
+function switchDriverCat(cat, el) {
+  currentDriverCat = cat;
+  document.querySelectorAll('#page-piloti .cat-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderDrivers();
+}
+
+async function loadDrivers() {
+  await fetchDrivers();
+  renderDrivers();
+}
+
+function renderDrivers() {
+  const wrap = document.getElementById('drivers-table-wrap');
+  const filtered = currentDriverCat === 'ALL' ? allDrivers : allDrivers.filter(d => d.category === currentDriverCat);
+
+  if (filtered.length === 0) {
+    wrap.innerHTML = '<div class="loading">Nessun pilota trovato. Aggiungine uno!</div>';
+    return;
+  }
+
+  wrap.innerHTML = `<table class="data-table">
+    <thead><tr><th>#</th><th>Pilota</th><th>Team</th><th>Cat</th><th>Azioni</th></tr></thead>
+    <tbody>${filtered.map(d => `
+      <tr>
+        <td style="color:var(--dim);font-family:'Exo 2',sans-serif;font-weight:900;font-style:italic">${d.number || '—'}</td>
+        <td>${d.flag || '🇮🇹'} <strong style="font-family:'Exo 2',sans-serif;font-weight:800;font-style:italic">${d.name}</strong></td>
+        <td><span class="team-dot" style="background:${TEAM_COLORS[d.team]||'#888'}"></span>${d.team}</td>
+        <td><span class="badge badge-${d.category.toLowerCase()}">${d.category}</span></td>
+        <td style="display:flex;gap:.5rem">
+          <button class="btn btn-ghost btn-sm" onclick="openEditDriver(${d.id})">✏️</button>
+          <button class="btn btn-red btn-sm" onclick="deleteDriver(${d.id}, '${d.name}')">🗑️</button>
+        </td>
+      </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function openAddDriver() {
+  document.getElementById('driver-modal-title').textContent = 'Aggiungi Pilota';
+  document.getElementById('driver-edit-id').value = '';
+  document.getElementById('d-name').value = '';
+  document.getElementById('d-team').value = 'Ferrari';
+  document.getElementById('d-category').value = 'F1';
+  document.getElementById('d-number').value = '';
+  document.getElementById('d-flag').value = '🇮🇹';
+  document.getElementById('driver-modal').classList.add('open');
+}
+
+function openEditDriver(id) {
+  const d = allDrivers.find(x => x.id === id);
+  if (!d) return;
+  document.getElementById('driver-modal-title').textContent = 'Modifica Pilota';
+  document.getElementById('driver-edit-id').value = d.id;
+  document.getElementById('d-name').value = d.name;
+  document.getElementById('d-team').value = d.team;
+  document.getElementById('d-category').value = d.category;
+  document.getElementById('d-number').value = d.number || '';
+  document.getElementById('d-flag').value = d.flag || '🇮🇹';
+  document.getElementById('driver-modal').classList.add('open');
+}
+
+async function saveDriver() {
+  const id = document.getElementById('driver-edit-id').value;
+  const body = {
+    name: document.getElementById('d-name').value.trim(),
+    team: document.getElementById('d-team').value,
+    category: document.getElementById('d-category').value,
+    number: document.getElementById('d-number').value.trim(),
+    flag: document.getElementById('d-flag').value.trim() || '🇮🇹'
+  };
+  if (!body.name) { toast('Il nome è obbligatorio', 'err'); return; }
+
+  const url = id ? `${API}/drivers?id=${id}` : `${API}/drivers`;
+  const method = id ? 'PUT' : 'POST';
+
+  try {
+    const r = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', 'Authorization': password },
+      body: JSON.stringify(body)
+    });
+    const data = await r.json();
+    if (data.id) {
+      toast(id ? 'Pilota aggiornato ✓' : 'Pilota aggiunto ✓', 'ok');
+      closeModal('driver-modal');
+      loadDrivers();
+    } else {
+      toast(data.error || 'Errore', 'err');
+    }
+  } catch(e) {
+    toast('Errore di connessione', 'err');
+  }
+}
+
+async function deleteDriver(id, name) {
+  if (!confirm(`Rimuovere ${name} dal campionato?`)) return;
+  try {
+    await fetch(`${API}/drivers?id=${id}`, { method: 'DELETE', headers: { 'Authorization': password } });
+    toast('Pilota rimosso', 'ok');
+    loadDrivers();
+  } catch(e) { toast('Errore', 'err'); }
+}
+
+// ── CALENDARIO ──
+function switchCalCat(cat, el) {
+  currentCalCat = cat;
+  document.querySelectorAll('#page-calendario .cat-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  loadCalendar();
+}
+
+async function loadCalendar() {
+  await fetchRaces();
+  const list = document.getElementById('calendar-list');
+  const races = allRaces.filter(r => r.category === currentCalCat);
+
+  if (races.length === 0) {
+    list.innerHTML = '<div class="loading">Nessuna gara. Inizializza il DB prima.</div>';
+    return;
+  }
+
+  list.innerHTML = races.map(r => `
+    <div class="race-toggle-row">
+      <div class="race-info">
+        <div class="rname">${r.flag_emoji} Round ${r.round} — ${r.name}</div>
+        <div class="rdetail">${r.circuit} · ${r.race_date}${r.double_points ? ' &nbsp;<span class="double-badge">2× PUNTI</span>' : ''}</div>
+      </div>
+      <div class="toggle-wrap">
+        <span class="done-label ${r.is_done ? 'done' : ''}">${r.is_done ? 'Completata' : 'In programma'}</span>
+        <label class="toggle">
+          <input type="checkbox" ${r.is_done ? 'checked' : ''} onchange="toggleRace(${r.id}, this.checked, ${r.double_points})">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>`).join('');
+}
+
+async function toggleRace(id, done, double_points) {
+  try {
+    await fetch(`${API}/races?id=${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': password },
+      body: JSON.stringify({ is_done: done, double_points })
+    });
+    await fetchRaces();
+    loadCalendar();
+    toast(done ? 'Gara segnata come completata ✓' : 'Gara ripristinata', 'ok');
+  } catch(e) { toast('Errore', 'err'); }
+}
+
+// ── SETUP DB ──
+async function initDB() {
+  const okEl = document.getElementById('init-ok');
+  const errEl = document.getElementById('init-err');
+  okEl.style.display = 'none';
+  errEl.style.display = 'none';
+
+  try {
+    const r = await fetch(`${API}/init`, {
+      method: 'POST',
+      headers: { 'Authorization': password }
+    });
+    const data = await r.json();
+    if (data.ok) {
+      okEl.textContent = '✓ ' + data.message;
+      okEl.style.display = 'block';
+      await initApp();
+    } else {
+      errEl.textContent = '✗ ' + (data.error || 'Errore');
+      errEl.style.display = 'block';
+    }
+  } catch(e) {
+    errEl.textContent = '✗ Errore di connessione';
+    errEl.style.display = 'block';
+  }
+}
+
+// ── HELPERS ──
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
+
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type}`;
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+</script>
+</body>
+</html>
