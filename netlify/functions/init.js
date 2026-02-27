@@ -57,6 +57,13 @@ exports.handler = async (event) => {
   try {
     const sql = neon(process.env.NETLIFY_DATABASE_URL);
 
+    await sql`CREATE TABLE IF NOT EXISTS teams (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(100) NOT NULL UNIQUE,
+      color VARCHAR(20) DEFAULT '#888888',
+      created_at TIMESTAMP DEFAULT NOW()
+    )`;
+
     await sql`CREATE TABLE IF NOT EXISTS drivers (
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
@@ -90,6 +97,26 @@ exports.handler = async (event) => {
       created_at TIMESTAMP DEFAULT NOW(),
       UNIQUE(race_id, driver_id)
     )`;
+
+    // Seed teams only if table is empty
+    const existingTeams = await sql`SELECT COUNT(*) as count FROM teams`;
+    if (parseInt(existingTeams[0].count) === 0) {
+      const defaultTeams = [
+        { name: 'Ferrari',       color: '#e8002d' },
+        { name: 'McLaren',       color: '#FF8000' },
+        { name: 'Red Bull',      color: '#3671C6' },
+        { name: 'Mercedes',      color: '#27F4D2' },
+        { name: 'Aston Martin',  color: '#229971' },
+        { name: 'Alpine',        color: '#FF87BC' },
+        { name: 'Williams',      color: '#64C4FF' },
+        { name: 'Haas',          color: '#B6BABD' },
+        { name: 'Kick Sauber',   color: '#52E252' },
+        { name: 'Racing Bulls',  color: '#6692FF' },
+      ];
+      for (const t of defaultTeams) {
+        await sql`INSERT INTO teams (name, color) VALUES (${t.name}, ${t.color}) ON CONFLICT (name) DO NOTHING`;
+      }
+    }
 
     // Seed races only if table is empty
     const existing = await sql`SELECT COUNT(*) as count FROM races`;
