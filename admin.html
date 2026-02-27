@@ -703,11 +703,10 @@ function clearResultForm() {
 }
 
 // ── PILOTI ──
-const TEAM_COLORS = {
-  'Ferrari':'#e8002d','McLaren':'#FF8000','Red Bull':'#3671C6','Mercedes':'#27F4D2',
-  'Aston Martin':'#229971','Alpine':'#FF87BC','Williams':'#64C4FF','Haas':'#B6BABD',
-  'Kick Sauber':'#52E252','Racing Bulls':'#6692FF'
-};
+function getTeamColor(teamName) {
+  const t = allTeams.find(x => x.name === teamName);
+  return t ? t.color : '#888888';
+}
 
 function switchDriverCat(cat, el) {
   currentDriverCat = cat;
@@ -736,7 +735,7 @@ function renderDrivers() {
       <tr>
         <td style="color:var(--dim);font-family:'Exo 2',sans-serif;font-weight:900;font-style:italic">${d.number || '—'}</td>
         <td>${d.flag || '🇮🇹'} <strong style="font-family:'Exo 2',sans-serif;font-weight:800;font-style:italic">${d.name}</strong></td>
-        <td><span class="team-dot" style="background:${TEAM_COLORS[d.team]||'#888'}"></span>${d.team}</td>
+        <td><span class="team-dot" style="background:${getTeamColor(d.team)}"></span>${d.team}</td>
         <td><span class="badge badge-${d.category.toLowerCase()}">${d.category}</span></td>
         <td style="display:flex;gap:.5rem">
           <button class="btn btn-ghost btn-sm" onclick="openEditDriver(${d.id})">✏️</button>
