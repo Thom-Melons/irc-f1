@@ -218,6 +218,7 @@
       <div class="aside-label">Gestione</div>
       <button class="nav-item active" onclick="showPage('risultati')"><span class="icon">🏁</span> Risultati</button>
       <button class="nav-item" onclick="showPage('piloti')"><span class="icon">👤</span> Piloti</button>
+      <button class="nav-item" onclick="showPage('team')"><span class="icon">🏎️</span> Team</button>
       <button class="nav-item" onclick="showPage('calendario')"><span class="icon">📅</span> Calendario</button>
       <div class="aside-label" style="margin-top:1.5rem">Sistema</div>
       <button class="nav-item" onclick="showPage('setup')"><span class="icon">⚙️</span> Setup DB</button>
@@ -277,6 +278,18 @@
         </div>
       </div>
 
+      <!-- ═══ TEAM ═══ -->
+      <div class="page" id="page-team">
+        <div class="page-title">Team</div>
+        <div class="page-sub">Gestisci i nomi e i colori delle scuderie.</div>
+        <div class="page-actions">
+          <button class="btn btn-blue" onclick="openAddTeam()">+ Aggiungi Team</button>
+        </div>
+        <div class="card" style="padding:0">
+          <div id="teams-table-wrap"><div class="loading">Caricamento...</div></div>
+        </div>
+      </div>
+
       <!-- ═══ CALENDARIO ═══ -->
       <div class="page" id="page-calendario">
         <div class="page-title">Calendario</div>
@@ -328,6 +341,31 @@
   </div>
 </div>
 
+<!-- MODAL TEAM -->
+<div class="modal-overlay" id="team-modal">
+  <div class="modal">
+    <h2 id="team-modal-title">Aggiungi Team</h2>
+    <input type="hidden" id="team-edit-id">
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Nome Team *</label>
+        <input type="text" id="t-name" placeholder="Es. Ferrari">
+      </div>
+      <div class="form-group full">
+        <label>Colore (hex)</label>
+        <div style="display:flex;gap:.75rem;align-items:center">
+          <input type="color" id="t-color-picker" value="#888888" oninput="document.getElementById('t-color').value=this.value" style="width:48px;height:40px;padding:2px;cursor:pointer;border:1px solid var(--border);background:var(--black)">
+          <input type="text" id="t-color" placeholder="#888888" oninput="syncColorPicker()" style="flex:1">
+        </div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-green" onclick="saveTeam()">💾 Salva</button>
+      <button class="btn btn-ghost" onclick="closeModal('team-modal')">Annulla</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL PILOTA -->
 <div class="modal-overlay" id="driver-modal">
   <div class="modal">
@@ -340,18 +378,7 @@
       </div>
       <div class="form-group">
         <label>Team *</label>
-        <select id="d-team">
-          <option value="Ferrari">Ferrari</option>
-          <option value="McLaren">McLaren</option>
-          <option value="Red Bull">Red Bull Racing</option>
-          <option value="Mercedes">Mercedes</option>
-          <option value="Aston Martin">Aston Martin</option>
-          <option value="Alpine">Alpine</option>
-          <option value="Williams">Williams</option>
-          <option value="Haas">Haas</option>
-          <option value="Kick Sauber">Kick Sauber</option>
-          <option value="Racing Bulls">Racing Bulls</option>
-        </select>
+        <select id="d-team"></select>
       </div>
       <div class="form-group">
         <label>Categoria *</label>
@@ -442,12 +469,14 @@ function showPage(id) {
     if (n.textContent.trim().toLowerCase().includes(id.toLowerCase().slice(0,4))) n.classList.add('active');
   });
   if (id === 'piloti') loadDrivers();
+  if (id === 'team') loadTeams();
   if (id === 'calendario') loadCalendar();
 }
 
 // ── INIT APP ──
 async function initApp() {
-  await Promise.all([fetchDrivers(), fetchRaces()]);
+  await Promise.all([fetchDrivers(), fetchRaces(), fetchTeams()]);
+  renderDriverTeamOptions();
   loadResultRaces();
   loadDrivers();
   loadCalendar();
@@ -467,7 +496,114 @@ async function fetchRaces() {
   } catch(e) { allRaces = []; }
 }
 
-// ── RISULTATI ──
+let allTeams = [];
+
+async function fetchTeams() {
+  try {
+    const r = await fetch(`${API}/teams`);
+    allTeams = await r.json();
+  } catch(e) { allTeams = []; }
+}
+
+// ── TEAM ──
+async function loadTeams() {
+  await fetchTeams();
+  renderTeams();
+}
+
+function renderTeams() {
+  const wrap = document.getElementById('teams-table-wrap');
+  if (allTeams.length === 0) {
+    wrap.innerHTML = '<div class="loading">Nessun team trovato. Inizializza il DB prima.</div>';
+    return;
+  }
+  wrap.innerHTML = `<table class="data-table">
+    <thead><tr><th>Colore</th><th>Nome</th><th>Azioni</th></tr></thead>
+    <tbody>${allTeams.map(t => `
+      <tr>
+        <td><span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:${t.color};vertical-align:middle"></span></td>
+        <td><strong style="font-family:'Exo 2',sans-serif;font-weight:800;font-style:italic">${t.name}</strong></td>
+        <td style="display:flex;gap:.5rem">
+          <button class="btn btn-ghost btn-sm" onclick="openEditTeam(${t.id})">✏️</button>
+          <button class="btn btn-red btn-sm" onclick="deleteTeam(${t.id}, '${t.name}')">🗑️</button>
+        </td>
+      </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function openAddTeam() {
+  document.getElementById('team-modal-title').textContent = 'Aggiungi Team';
+  document.getElementById('team-edit-id').value = '';
+  document.getElementById('t-name').value = '';
+  document.getElementById('t-color').value = '#888888';
+  document.getElementById('t-color-picker').value = '#888888';
+  document.getElementById('team-modal').classList.add('open');
+}
+
+function openEditTeam(id) {
+  const t = allTeams.find(x => x.id === id);
+  if (!t) return;
+  document.getElementById('team-modal-title').textContent = 'Modifica Team';
+  document.getElementById('team-edit-id').value = t.id;
+  document.getElementById('t-name').value = t.name;
+  document.getElementById('t-color').value = t.color;
+  document.getElementById('t-color-picker').value = t.color;
+  document.getElementById('team-modal').classList.add('open');
+}
+
+function syncColorPicker() {
+  const val = document.getElementById('t-color').value;
+  if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+    document.getElementById('t-color-picker').value = val;
+  }
+}
+
+async function saveTeam() {
+  const id = document.getElementById('team-edit-id').value;
+  const name = document.getElementById('t-name').value.trim();
+  const color = document.getElementById('t-color').value.trim() || '#888888';
+  if (!name) { toast('Il nome è obbligatorio', 'err'); return; }
+
+  const url = id ? `${API}/teams?id=${id}` : `${API}/teams`;
+  const method = id ? 'PUT' : 'POST';
+
+  try {
+    const r = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', 'Authorization': password },
+      body: JSON.stringify({ name, color })
+    });
+    const data = await r.json();
+    if (data.id) {
+      toast(id ? 'Team aggiornato ✓' : 'Team aggiunto ✓', 'ok');
+      closeModal('team-modal');
+      loadTeams();
+      // Refresh driver team dropdown
+      renderDriverTeamOptions();
+    } else {
+      toast(data.error || 'Errore', 'err');
+    }
+  } catch(e) {
+    toast('Errore di connessione', 'err');
+  }
+}
+
+async function deleteTeam(id, name) {
+  if (!confirm(`Eliminare il team "${name}"? Questa azione non può essere annullata.`)) return;
+  try {
+    const r = await fetch(`${API}/teams?id=${id}`, { method: 'DELETE', headers: { 'Authorization': password } });
+    toast('Team eliminato', 'ok');
+    loadTeams();
+  } catch(e) { toast('Errore', 'err'); }
+}
+
+function renderDriverTeamOptions() {
+  const sel = document.getElementById('d-team');
+  if (!sel) return;
+  sel.innerHTML = allTeams.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+}
+
+
 function switchResultCat(cat, el) {
   currentResultCat = cat;
   document.querySelectorAll('#page-risultati .cat-tab').forEach(t => t.classList.remove('active'));
@@ -627,6 +763,7 @@ function openEditDriver(id) {
   document.getElementById('driver-modal-title').textContent = 'Modifica Pilota';
   document.getElementById('driver-edit-id').value = d.id;
   document.getElementById('d-name').value = d.name;
+  renderDriverTeamOptions();
   document.getElementById('d-team').value = d.team;
   document.getElementById('d-category').value = d.category;
   document.getElementById('d-number').value = d.number || '';
