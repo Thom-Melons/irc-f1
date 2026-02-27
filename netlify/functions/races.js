@@ -31,8 +31,13 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'PUT') {
       const body = JSON.parse(event.body);
       const [r] = await sql`UPDATE races SET
-        is_done=${body.is_done ?? false},
-        double_points=${body.double_points ?? false}
+        round        = ${body.round},
+        name         = ${body.name},
+        circuit      = ${body.circuit},
+        race_date    = ${body.race_date},
+        flag_emoji   = ${body.flag_emoji},
+        is_done      = ${body.is_done ?? false},
+        double_points= ${body.double_points ?? false}
         WHERE id=${params.id} RETURNING *`;
       return { statusCode: 200, headers: CORS, body: JSON.stringify(r) };
     }
